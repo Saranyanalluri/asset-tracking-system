@@ -1,0 +1,34 @@
+@'
+{
+  "TAG-WC-001": {
+    "asset_id": "Wheelchair-01",
+    "asset_type": "Wheelchair",
+    "initial_zone": "ENTRANCE",
+    "status": "ACTIVE"
+  },
+  "TAG-VT-001": {
+    "asset_id": "Ventilator-01",
+    "asset_type": "Ventilator",
+    "initial_zone": "ICU",
+    "status": "ACTIVE"
+  },
+  "TAG-IP-001": {
+    "asset_id": "InfusionPump-01",
+    "asset_type": "Infusion Pump",
+    "initial_zone": "WARD_A",
+    "status": "ACTIVE"
+  },
+  "TAG-EK-001": {
+    "asset_id": "EmergencyKit-01",
+    "asset_type": "Emergency Kit",
+    "initial_zone": "EMERGENCY",
+    "status": "ACTIVE"
+  },
+  "TAG-MM-001": {
+    "asset_id": "MedicalMonitor-01",
+    "asset_type": "Medical Monitor",
+    "initial_zone": "LAB",
+    "status": "ACTIVE"
+  }
+}
+'@ | Set-Content -Encoding UTF8 "config\tags.json"

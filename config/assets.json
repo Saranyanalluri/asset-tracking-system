@@ -1,0 +1,9 @@
+{
+  "assets": [
+    {"id": "Wheelchair-01",    "type": "Wheelchair",      "allowed_zones": ["ENTRANCE", "WARD_A", "WARD_B", "EMERGENCY"]},
+    {"id": "Ventilator-01",    "type": "Ventilator",      "allowed_zones": ["ICU", "EMERGENCY", "WARD_A"]},
+    {"id": "InfusionPump-01",  "type": "Infusion Pump",   "allowed_zones": ["WARD_A", "WARD_B", "ICU", "STORAGE"]},
+    {"id": "EmergencyKit-01",  "type": "Emergency Kit",   "allowed_zones": ["EMERGENCY", "ICU", "WARD_A", "WARD_B"]},
+    {"id": "MedicalMonitor-01","type": "Medical Monitor", "allowed_zones": ["WARD_A", "WARD_B", "ICU", "LAB"]}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "mqtt": {
+    "broker": "localhost",
+    "port": 1883
+  },
+  "hospital": {
+    "zones": [
+      "ENTRANCE",
+      "WARD_A",
+      "WARD_B",
+      "ICU",
+      "LAB",
+      "PHARMACY",
+      "STORAGE",
+      "EMERGENCY"
+    ]
+  }
+}

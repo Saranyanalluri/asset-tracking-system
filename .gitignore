@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment / secrets
+.env
+*.env
+
+# SQLite database
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Node-RED runtime files
+node-red/.config.nodes.json
+node-red/flows_*.cred.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.bak

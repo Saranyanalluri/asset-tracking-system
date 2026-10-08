@@ -1,0 +1,619 @@
+[
+  {
+    "id": "tab_phase2",
+    "type": "tab",
+    "label": "Asset Tracking - Phase 2",
+    "disabled": false,
+    "info": "MQTT in -> parse -> validate -> zone rule engine -> debug.\nConfig is read from config/assets.json and config/system_config.json by the 'Set Config Paths' function (edit the path there if ASSET_TRACKER_CONFIG_DIR is not set)."
+  },
+  {
+    "id": "broker_local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "localhost",
+    "port": "1883",
+    "clientid": "nodered-asset-tracker",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "closeTopic": "",
+    "willTopic": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "tab_phase2",
+    "name": "A. Event pipeline",
+    "info": "",
+    "x": 120,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "c2",
+    "type": "comment",
+    "z": "tab_phase2",
+    "name": "B. Config loader (reads config/*.json on deploy; click the button to reload)",
+    "info": "",
+    "x": 300,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "mqtt_in",
+    "type": "mqtt in",
+    "z": "tab_phase2",
+    "name": "MQTT - Asset Location",
+    "topic": "assets/+/location",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "broker_local",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 100,
+    "wires": [
+      [
+        "json_parse"
+      ]
+    ]
+  },
+  {
+    "id": "json_parse",
+    "type": "json",
+    "z": "tab_phase2",
+    "name": "Parse Location JSON",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 380,
+    "y": 100,
+    "wires": [
+      [
+        "validate"
+      ]
+    ]
+  },
+  {
+    "id": "catch_json",
+    "type": "catch",
+    "z": "tab_phase2",
+    "name": "Catch bad JSON",
+    "scope": [
+      "json_parse"
+    ],
+    "uncaught": false,
+    "x": 380,
+    "y": 160,
+    "wires": [
+      [
+        "validate"
+      ]
+    ]
+  },
+  {
+    "id": "validate",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Validate Asset Event",
+    "func": "// Validate Asset Event\n// output 1: valid event -> rule engine   output 2: invalid event -> Invalid Event\nconst assetList = flow.get(\"cfg_assets\");\nconst system = flow.get(\"cfg_system\");\nconst now = new Date().toISOString();\n\nfunction invalid(code, reason) {\n    msg.payload = { status: \"INVALID\", error_code: code, reason: reason,\n                    topic: msg.topic, raw: msg.payload, timestamp: now };\n    delete msg.error;\n    return [null, msg];\n}\n\nif (!assetList || !system) return invalid(\"CONFIG_NOT_LOADED\", \"assets.json / system_config.json not loaded yet (check Config Error debug)\");\nconst assets = Object.fromEntries(assetList.map(a => [a.id, a]));\nconst zones = system.hospital.zones;\n\nif (msg.error) return invalid(\"MALFORMED_JSON\", \"Payload is not valid JSON\");\nconst p = msg.payload;\nif (p === null || p === undefined || typeof p !== \"object\" || Array.isArray(p))\n    return invalid(\"EMPTY_OR_NOT_OBJECT\", \"Message is empty or not a JSON object\");\nif (typeof p.id !== \"string\" || p.id.trim() === \"\") return invalid(\"MISSING_ID\", \"Field 'id' is missing\");\nif (typeof p.room !== \"string\" || p.room.trim() === \"\") return invalid(\"MISSING_ROOM\", \"Field 'room' is missing\");\nif (!assets[p.id]) return invalid(\"UNKNOWN_ASSET\", \"Unknown asset: \" + p.id);\nif (!zones.includes(p.room)) return invalid(\"UNKNOWN_ZONE\", \"Unknown zone: \" + p.room);\n\nmsg.asset = assets[p.id];\nmsg.event = { asset_id: p.id, room: p.room,\n              timestamp: (typeof p.timestamp === \"string\" && p.timestamp) ? p.timestamp : now,\n              source: (typeof p.source === \"string\" && p.source) ? p.source : \"unknown\" };\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 100,
+    "wires": [
+      [
+        "rule_engine"
+      ],
+      [
+        "dbg_invalid"
+      ]
+    ]
+  },
+  {
+    "id": "rule_engine",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Zone Violation Rule Engine",
+    "func": "// Zone Violation Rule Engine (one generic engine for ALL assets)\n// output 1: AUTHORIZED   output 2: VIOLATION\nconst asset = msg.asset, ev = msg.event;\n\n// Runtime memory only (no database yet): { asset_id: {room, status, timestamp} }\nconst state = flow.get(\"asset_state\") || {};\nconst prev = state[ev.asset_id] || null;\n\nconst authorized = asset.allowed_zones.includes(ev.room);\nconst status = authorized ? \"AUTHORIZED\" : \"VIOLATION\";\nconst wasViolation = !!prev && prev.status === \"VIOLATION\";\n\nlet violation_state;\nif (status === \"VIOLATION\") violation_state = wasViolation ? \"ONGOING\" : \"NEW\";\nelse violation_state = wasViolation ? \"CLEARED\" : \"NONE\";\n\nstate[ev.asset_id] = { room: ev.room, status: status, timestamp: ev.timestamp };\nflow.set(\"asset_state\", state);\n\nmsg.payload = {\n    asset_id: ev.asset_id,\n    asset_type: asset.type,\n    room: ev.room,\n    previous_room: prev ? prev.room : null,\n    allowed_zones: asset.allowed_zones,\n    status: status,\n    violation_state: violation_state,\n    timestamp: ev.timestamp,\n    source: ev.source,\n    reason: authorized ? \"Asset is authorized in this zone\" : \"Asset is not authorized in this zone\"\n};\ndelete msg.asset; delete msg.event;\nreturn authorized ? [msg, null] : [null, msg];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 100,
+    "wires": [
+      [
+        "dbg_auth",
+        "dbg_processed",
+        "prep_insert"
+      ],
+      [
+        "dbg_viol",
+        "dbg_processed",
+        "prep_insert"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_auth",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Authorized Event",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 1150,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "dbg_viol",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Violation Event",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 1150,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "dbg_processed",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Processed Event",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 1160,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "dbg_invalid",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Invalid Event",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 880,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "inj_cfg",
+    "type": "inject",
+    "z": "tab_phase2",
+    "name": "Load config (on deploy / click)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 360,
+    "wires": [
+      [
+        "set_paths"
+      ]
+    ]
+  },
+  {
+    "id": "set_paths",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Set Config Paths",
+    "func": "// Set Config Paths\n// Uses env var ASSET_TRACKER_CONFIG_DIR if set, otherwise EDIT THE PATH BELOW\n// (use forward slashes, e.g. \"C:/Users/you/asset-tracking-system/config\")\nconst CONFIG_DIR = env.get(\"ASSET_TRACKER_CONFIG_DIR\") || \"C:/Users/nallu/Downloads/asset-tracking-system/config\";\nconst a = { filename: CONFIG_DIR + \"/assets.json\",        cfgkey: \"assets\" };\nconst s = { filename: CONFIG_DIR + \"/system_config.json\", cfgkey: \"system\" };\nreturn [[a, s]];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 360,
+    "wires": [
+      [
+        "file_cfg"
+      ]
+    ]
+  },
+  {
+    "id": "file_cfg",
+    "type": "file in",
+    "z": "tab_phase2",
+    "name": "Read config file",
+    "filename": "filename",
+    "filenameType": "msg",
+    "format": "utf8",
+    "chunk": false,
+    "sendError": false,
+    "encoding": "none",
+    "allProps": false,
+    "x": 620,
+    "y": 360,
+    "wires": [
+      [
+        "json_cfg"
+      ]
+    ]
+  },
+  {
+    "id": "json_cfg",
+    "type": "json",
+    "z": "tab_phase2",
+    "name": "Parse config JSON",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 830,
+    "y": 360,
+    "wires": [
+      [
+        "store_cfg"
+      ]
+    ]
+  },
+  {
+    "id": "store_cfg",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Store Config",
+    "func": "// Store Config -> flow context (single source of truth = config/*.json)\nlet data = msg.payload;\nif (msg.cfgkey === \"assets\") {\n    data = Array.isArray(data) ? data : (data && data.assets);\n    if (!Array.isArray(data)) { node.error(\"assets.json must contain an 'assets' array\", msg); return null; }\n} else if (!(data && data.hospital && Array.isArray(data.hospital.zones))) {\n    node.error(\"system_config.json must contain hospital.zones\", msg); return null;\n}\nflow.set(\"cfg_\" + msg.cfgkey, data);\nconst n = msg.cfgkey === \"assets\" ? data.length + \" assets\" : data.hospital.zones.length + \" zones\";\nnode.status({ fill: \"green\", shape: \"dot\", text: msg.cfgkey + \": \" + n });\nmsg.payload = { config: msg.cfgkey, loaded: true, detail: n, from: msg.filename };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1040,
+    "y": 360,
+    "wires": [
+      [
+        "dbg_cfg_ok"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_cfg_ok",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Config Loaded",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.detail",
+    "statusType": "msg",
+    "x": 1260,
+    "y": 360,
+    "wires": []
+  },
+  {
+    "id": "catch_cfg",
+    "type": "catch",
+    "z": "tab_phase2",
+    "name": "Catch config errors",
+    "scope": [
+      "file_cfg",
+      "json_cfg",
+      "store_cfg"
+    ],
+    "uncaught": false,
+    "x": 620,
+    "y": 430,
+    "wires": [
+      [
+        "dbg_cfg_err"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_cfg_err",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Config Error",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "error.message",
+    "targetType": "msg",
+    "statusVal": "error.message",
+    "statusType": "msg",
+    "x": 860,
+    "y": 430,
+    "wires": []
+  },
+  {
+    "id": "sqlite_db",
+    "type": "sqlitedb",
+    "db": "C:/Users/nallu/Downloads/asset-tracking-system/database/asset_tracking.db",
+    "mode": "RWC"
+  },
+  {
+    "id": "c3",
+    "type": "comment",
+    "z": "tab_phase2",
+    "name": "C. SQLite persistence (Phase 3): init schema on deploy, then insert every valid processed event",
+    "info": "Database file path is set in the 'sqlitedb' config node (double-click any SQLite node > pencil icon).",
+    "x": 420,
+    "y": 500,
+    "wires": []
+  },
+  {
+    "id": "inj_db",
+    "type": "inject",
+    "z": "tab_phase2",
+    "name": "Init database (on deploy / click)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 560,
+    "wires": [
+      [
+        "build_init"
+      ]
+    ]
+  },
+  {
+    "id": "build_init",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Build Init SQL",
+    "func": "// Build Init SQL: idempotent (IF NOT EXISTS) - never drops or deletes data\nflow.set(\"db_ready\", false);\nmsg.topic = `CREATE TABLE IF NOT EXISTS asset_events (\n    id              INTEGER PRIMARY KEY AUTOINCREMENT,\n    asset_id        TEXT NOT NULL,\n    asset_type      TEXT,\n    room            TEXT NOT NULL,\n    previous_room   TEXT,\n    status          TEXT NOT NULL,\n    violation_state TEXT NOT NULL,\n    timestamp       TEXT NOT NULL,\n    source          TEXT,\n    reason          TEXT,\n    allowed_zones   TEXT,\n    created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\nCREATE INDEX IF NOT EXISTS idx_asset_events_asset_id  ON asset_events(asset_id);\nCREATE INDEX IF NOT EXISTS idx_asset_events_timestamp ON asset_events(timestamp);\nCREATE INDEX IF NOT EXISTS idx_asset_events_status    ON asset_events(status);\nCREATE INDEX IF NOT EXISTS idx_asset_events_room      ON asset_events(room);`;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 560,
+    "wires": [
+      [
+        "sqlite_init"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_init",
+    "type": "sqlite",
+    "z": "tab_phase2",
+    "mydb": "sqlite_db",
+    "sqlquery": "batch",
+    "sql": "",
+    "name": "SQLite - Initialize Schema",
+    "x": 670,
+    "y": 560,
+    "wires": [
+      [
+        "mark_ready"
+      ]
+    ]
+  },
+  {
+    "id": "mark_ready",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Mark DB Ready",
+    "func": "// Mark DB Ready (runs only after the schema statements succeeded)\nflow.set(\"db_ready\", true);\nnode.status({ fill: \"green\", shape: \"dot\", text: \"database ready\" });\nmsg.payload = { database: \"asset_tracking.db\", table: \"asset_events\", status: \"initialized (existing data kept)\" };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 910,
+    "y": 560,
+    "wires": [
+      [
+        "dbg_init"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_init",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "SQLite Initialized",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 1150,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "prep_insert",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Prepare DB Insert",
+    "func": "// Prepare DB Insert: maps the Phase 2 standardized event to a parameterized INSERT\nconst e = msg.payload;\nif (!flow.get(\"db_ready\")) { node.error(\"Database not initialized yet - event NOT saved\", msg); return null; }\nconst req = [\"asset_id\", \"room\", \"status\", \"violation_state\", \"timestamp\"];\nconst missing = req.filter(k => typeof e[k] !== \"string\" || e[k] === \"\");\nif (missing.length) { node.error(\"Cannot save event, missing field(s): \" + missing.join(\", \"), msg); return null; }\n\nmsg.event_saved = { asset_id: e.asset_id, room: e.room, status: e.status, violation_state: e.violation_state };\n// order must match the ? placeholders in the SQLite - Insert Event node\nmsg.params = [\n    e.asset_id, e.asset_type ?? null, e.room, e.previous_room ?? null, e.status,\n    e.violation_state, e.timestamp, e.source ?? null, e.reason ?? null,\n    JSON.stringify(e.allowed_zones ?? [])\n];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 640,
+    "wires": [
+      [
+        "sqlite_insert"
+      ]
+    ]
+  },
+  {
+    "id": "sqlite_insert",
+    "type": "sqlite",
+    "z": "tab_phase2",
+    "mydb": "sqlite_db",
+    "sqlquery": "prepared",
+    "sql": "INSERT INTO asset_events (asset_id, asset_type, room, previous_room, status, violation_state, timestamp, source, reason, allowed_zones) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "name": "SQLite - Insert Event",
+    "x": 670,
+    "y": 640,
+    "wires": [
+      [
+        "fmt_ok"
+      ]
+    ]
+  },
+  {
+    "id": "fmt_ok",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Format Insert Success",
+    "func": "// Format Insert Success\nmsg.payload = Object.assign({ rows_written: 1 }, msg.event_saved);\nnode.status({ fill: \"green\", shape: \"dot\", text: msg.event_saved.asset_id + \" -> \" + msg.event_saved.room });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 910,
+    "y": 640,
+    "wires": [
+      [
+        "dbg_db_ok"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_db_ok",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Database Insert Success",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.room",
+    "statusType": "msg",
+    "x": 1160,
+    "y": 640,
+    "wires": []
+  },
+  {
+    "id": "catch_db",
+    "type": "catch",
+    "z": "tab_phase2",
+    "name": "Catch database errors",
+    "scope": [
+      "build_init",
+      "sqlite_init",
+      "mark_ready",
+      "prep_insert",
+      "sqlite_insert",
+      "fmt_ok"
+    ],
+    "uncaught": false,
+    "x": 430,
+    "y": 720,
+    "wires": [
+      [
+        "fmt_err"
+      ]
+    ]
+  },
+  {
+    "id": "fmt_err",
+    "type": "function",
+    "z": "tab_phase2",
+    "name": "Format DB Error",
+    "func": "// Format DB Error: show the real database error\nconst src = msg.error && msg.error.source ? msg.error.source.name : \"unknown node\";\nmsg.payload = { database_error: msg.error ? msg.error.message : \"unknown error\", failed_in: src,\n                event: msg.event_saved || null };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 670,
+    "y": 720,
+    "wires": [
+      [
+        "dbg_db_err"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_db_err",
+    "type": "debug",
+    "z": "tab_phase2",
+    "name": "Database Insert Error",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.database_error",
+    "statusType": "msg",
+    "x": 910,
+    "y": 720,
+    "wires": []
+  }
+]
