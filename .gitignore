@@ -32,3 +32,14 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+# SQLite journal files
+database/*.db-journal
+database/*.sqlite-journal
+
+# Node-RED credentials
+node-red/flows_cred.json
+node-red/flows_*.cred.json
+
+# Python environment variables
+.env.*
+!.env.example

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b1220">
+<title>SmartCare | Asset Tracker</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">SC</div><div><strong>SmartCare</strong><span>ASSET INTELLIGENCE</span></div></div>
+  <div class="side-label">WORKSPACE</div>
+  <a class="nav-item active" href="#overview"><span class="nav-icon">▦</span>Overview</a>
+  <a class="nav-item" href="#floorplan"><span class="nav-icon">⌘</span>Live floor plan</a>
+  <a class="nav-item" href="#assets"><span class="nav-icon">◈</span>Asset inventory</a>
+  <a class="nav-item" href="#alerts"><span class="nav-icon">⚑</span>Violations <span class="nav-count" id="sidebarViolationCount">0</span></a>
+  <div class="sidebar-bottom"><div class="system-card"><span class="system-dot" id="systemDot"></span><div><strong id="systemStatusText">Connecting…</strong><small id="systemStatusSub">Checking Node-RED API</small></div></div><div class="sidebar-foot">SOFTWARE SIMULATION<br>SmartCare Hospital · Demo environment</div></div>
+</aside>
+<main class="main-content" id="overview">
+<header class="topbar"><div><div class="eyebrow">HOSPITAL OPERATIONS / ASSET INTELLIGENCE</div><h1>Asset Tracking <span class="live-pill"><i></i> LIVE VIEW</span></h1><p class="subtitle">Monitor equipment locations and zone compliance in real time.</p></div>
+<div class="top-actions"><div class="clock-block"><span>LOCAL TIME</span><strong id="clock">--:--:--</strong></div><button class="btn btn-quiet" id="refreshBtn">↻ <span>Refresh</span></button><button class="btn btn-primary" id="pauseBtn">Ⅱ Pause updates</button></div></header>
+<section class="metric-grid">
+<article class="metric-card"><div class="metric-top"><span>Total assets</span><span class="metric-icon blue">◈</span></div><div class="metric-value" id="totalAssets">—</div><div class="metric-foot">Configured in registry</div></article>
+<article class="metric-card"><div class="metric-top"><span>Active assets</span><span class="metric-icon green">⌁</span></div><div class="metric-value" id="activeAssets">—</div><div class="metric-foot"><span class="status-dot green-dot"></span>Seen in current state</div></article>
+<article class="metric-card"><div class="metric-top"><span>Open violations</span><span class="metric-icon red">⚑</span></div><div class="metric-value" id="openViolations">—</div><div class="metric-foot" id="violationFoot">Waiting for event data</div></article>
+<article class="metric-card"><div class="metric-top"><span>Events recorded</span><span class="metric-icon violet">⌁</span></div><div class="metric-value" id="eventCount">—</div><div class="metric-foot">Persisted event history</div></article>
+</section>
+<section class="content-grid">
+<article class="panel floor-panel" id="floorplan"><div class="panel-header"><div><div class="section-kicker">SPATIAL OVERVIEW</div><h2>Live hospital floor plan</h2><p>Assets are positioned by their latest reported zone.</p></div><div class="legend"><span><i class="legend-dot normal"></i>Authorized</span><span><i class="legend-dot danger"></i>Violation</span></div></div><div class="floorplan-grid" id="floorplanGrid"><div class="empty-state">Waiting for live data from Node-RED…</div></div><div class="floor-footer"><span><i class="status-dot green-dot"></i>Asset positions reflect simulated zone reports</span><span id="lastUpdated">Last update: —</span></div></article>
+<article class="panel alert-panel" id="alerts"><div class="panel-header compact"><div><div class="section-kicker">ATTENTION REQUIRED</div><h2>Recent alerts</h2></div><span class="pill" id="alertCountPill">0 alerts</span></div><div class="alert-list" id="alertList"><div class="empty-state">No alert data received yet.</div></div><button class="btn btn-full" id="viewAllAlerts">View alert history <span>→</span></button></article>
+</section>
+<section class="panel inventory-panel" id="assets"><div class="panel-header inventory-header"><div><div class="section-kicker">EQUIPMENT REGISTER</div><h2>Asset inventory</h2><p>Search equipment and inspect its latest zone status.</p></div><div class="search-wrap"><span>⌕</span><input id="assetSearch" type="search" placeholder="Search asset, type, zone…" autocomplete="off"><kbd>⌕</kbd></div></div>
+<div class="table-wrap"><table><thead><tr><th>ASSET</th><th>ASSET TYPE</th><th>CURRENT ZONE</th><th>LAST UPDATE</th><th>COMPLIANCE</th></tr></thead><tbody id="assetTableBody"><tr><td colspan="5" class="table-empty">Waiting for asset data from Node-RED…</td></tr></tbody></table></div><div class="table-footer"><span id="assetRowsLabel">0 assets</span><span>Data source: Node-RED + SQLite</span></div></section>
+<section class="panel history-panel" id="history"><div class="panel-header compact"><div><div class="section-kicker">EVENT STREAM</div><h2>Latest activity</h2></div><span class="pill neutral-pill">Most recent first</span></div><div class="activity-list" id="activityList"><div class="empty-state">Activity will appear when events are received.</div></div></section>
+<footer class="page-footer"><span>SMARTCARE ASSET TRACKER <b>·</b> SOFTWARE-SIMULATED DEMONSTRATION</span><span id="apiStatus">API: waiting for connection</span></footer>
+</main></div><div class="toast-region" id="toastRegion" aria-live="polite"></div><script src="app.js"></script>
+</body></html>
