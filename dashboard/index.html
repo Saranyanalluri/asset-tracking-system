@@ -1,36 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b1220">
-<title>SmartCare | Asset Tracker</title><link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartCare | Hospital Asset Tracking</title>
+    <meta name="theme-color" content="#0b1422">
+    <link rel="stylesheet" href="styles.css?v=3">
+    <script src="app.js?v=3" defer></script>
 </head>
+
 <body>
-<div class="app-shell">
-<aside class="sidebar">
-  <div class="brand"><div class="brand-mark">SC</div><div><strong>SmartCare</strong><span>ASSET INTELLIGENCE</span></div></div>
-  <div class="side-label">WORKSPACE</div>
-  <a class="nav-item active" href="#overview"><span class="nav-icon">▦</span>Overview</a>
-  <a class="nav-item" href="#floorplan"><span class="nav-icon">⌘</span>Live floor plan</a>
-  <a class="nav-item" href="#assets"><span class="nav-icon">◈</span>Asset inventory</a>
-  <a class="nav-item" href="#alerts"><span class="nav-icon">⚑</span>Violations <span class="nav-count" id="sidebarViolationCount">0</span></a>
-  <div class="sidebar-bottom"><div class="system-card"><span class="system-dot" id="systemDot"></span><div><strong id="systemStatusText">Connecting…</strong><small id="systemStatusSub">Checking Node-RED API</small></div></div><div class="sidebar-foot">SOFTWARE SIMULATION<br>SmartCare Hospital · Demo environment</div></div>
-</aside>
-<main class="main-content" id="overview">
-<header class="topbar"><div><div class="eyebrow">HOSPITAL OPERATIONS / ASSET INTELLIGENCE</div><h1>Asset Tracking <span class="live-pill"><i></i> LIVE VIEW</span></h1><p class="subtitle">Monitor equipment locations and zone compliance in real time.</p></div>
-<div class="top-actions"><div class="clock-block"><span>LOCAL TIME</span><strong id="clock">--:--:--</strong></div><button class="btn btn-quiet" id="refreshBtn">↻ <span>Refresh</span></button><button class="btn btn-primary" id="pauseBtn">Ⅱ Pause updates</button></div></header>
-<section class="metric-grid">
-<article class="metric-card"><div class="metric-top"><span>Total assets</span><span class="metric-icon blue">◈</span></div><div class="metric-value" id="totalAssets">—</div><div class="metric-foot">Configured in registry</div></article>
-<article class="metric-card"><div class="metric-top"><span>Active assets</span><span class="metric-icon green">⌁</span></div><div class="metric-value" id="activeAssets">—</div><div class="metric-foot"><span class="status-dot green-dot"></span>Seen in current state</div></article>
-<article class="metric-card"><div class="metric-top"><span>Open violations</span><span class="metric-icon red">⚑</span></div><div class="metric-value" id="openViolations">—</div><div class="metric-foot" id="violationFoot">Waiting for event data</div></article>
-<article class="metric-card"><div class="metric-top"><span>Events recorded</span><span class="metric-icon violet">⌁</span></div><div class="metric-value" id="eventCount">—</div><div class="metric-foot">Persisted event history</div></article>
-</section>
-<section class="content-grid">
-<article class="panel floor-panel" id="floorplan"><div class="panel-header"><div><div class="section-kicker">SPATIAL OVERVIEW</div><h2>Live hospital floor plan</h2><p>Assets are positioned by their latest reported zone.</p></div><div class="legend"><span><i class="legend-dot normal"></i>Authorized</span><span><i class="legend-dot danger"></i>Violation</span></div></div><div class="floorplan-grid" id="floorplanGrid"><div class="empty-state">Waiting for live data from Node-RED…</div></div><div class="floor-footer"><span><i class="status-dot green-dot"></i>Asset positions reflect simulated zone reports</span><span id="lastUpdated">Last update: —</span></div></article>
-<article class="panel alert-panel" id="alerts"><div class="panel-header compact"><div><div class="section-kicker">ATTENTION REQUIRED</div><h2>Recent alerts</h2></div><span class="pill" id="alertCountPill">0 alerts</span></div><div class="alert-list" id="alertList"><div class="empty-state">No alert data received yet.</div></div><button class="btn btn-full" id="viewAllAlerts">View alert history <span>→</span></button></article>
-</section>
-<section class="panel inventory-panel" id="assets"><div class="panel-header inventory-header"><div><div class="section-kicker">EQUIPMENT REGISTER</div><h2>Asset inventory</h2><p>Search equipment and inspect its latest zone status.</p></div><div class="search-wrap"><span>⌕</span><input id="assetSearch" type="search" placeholder="Search asset, type, zone…" autocomplete="off"><kbd>⌕</kbd></div></div>
-<div class="table-wrap"><table><thead><tr><th>ASSET</th><th>ASSET TYPE</th><th>CURRENT ZONE</th><th>LAST UPDATE</th><th>COMPLIANCE</th></tr></thead><tbody id="assetTableBody"><tr><td colspan="5" class="table-empty">Waiting for asset data from Node-RED…</td></tr></tbody></table></div><div class="table-footer"><span id="assetRowsLabel">0 assets</span><span>Data source: Node-RED + SQLite</span></div></section>
-<section class="panel history-panel" id="history"><div class="panel-header compact"><div><div class="section-kicker">EVENT STREAM</div><h2>Latest activity</h2></div><span class="pill neutral-pill">Most recent first</span></div><div class="activity-list" id="activityList"><div class="empty-state">Activity will appear when events are received.</div></div></section>
-<footer class="page-footer"><span>SMARTCARE ASSET TRACKER <b>·</b> SOFTWARE-SIMULATED DEMONSTRATION</span><span id="apiStatus">API: waiting for connection</span></footer>
-</main></div><div class="toast-region" id="toastRegion" aria-live="polite"></div><script src="app.js"></script>
-</body></html>
+<div class="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">S</div>
+            <div>
+                <h2>SmartCare</h2>
+                <p>ASSET INTELLIGENCE</p>
+            </div>
+        </div>
+
+        <div class="side-label">WORKSPACE</div>
+
+        <a href="#overview" class="nav-link active">▦ <span>Overview</span></a>
+        <a href="#floorplan" class="nav-link">⌖ <span>Hospital Map</span></a>
+        <a href="#inventory" class="nav-link">▤ <span>Asset Inventory</span></a>
+        <a href="#alerts" class="nav-link">♧ <span>Alerts</span></a>
+        <a href="#history" class="nav-link">◷ <span>Event History</span></a>
+
+        <div class="sidebar-bottom">
+            <div class="connection-card">
+                <span id="systemDot" class="connection-dot offline"></span>
+                <div>
+                    <strong id="systemStatusText">Connecting...</strong>
+                    <small id="systemStatusSub">Waiting for Node-RED</small>
+                </div>
+            </div>
+            <p class="sidebar-note">SOFTWARE-SIMULATED TRACKING</p>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+
+        <header class="topbar" id="overview">
+            <div>
+                <div class="eyebrow">HOSPITAL OPERATIONS / OVERVIEW</div>
+                <h1>Asset Monitoring <span class="live-badge"><i></i> LIVE</span></h1>
+                <p class="subtitle">
+                    Monitor hospital equipment, simulated locations and zone violations.
+                </p>
+            </div>
+
+            <div class="top-actions">
+                <div class="clock-box">
+                    <small>LOCAL TIME</small>
+                    <strong id="clock">--:--:--</strong>
+                </div>
+                <button id="refreshBtn" class="button button-primary">↻ Refresh</button>
+                <button id="pauseBtn" class="button">Ⅱ Pause</button>
+            </div>
+        </header>
+
+        <div id="apiStatus" class="api-status">
+            Connecting to http://localhost:1880/api/state
+        </div>
+
+        <!-- Summary cards -->
+        <section class="metrics">
+            <article class="metric-card">
+                <div class="metric-heading">
+                    <span>Total Assets</span>
+                    <span class="metric-icon blue">▤</span>
+                </div>
+                <div class="metric-number" id="totalAssets">0</div>
+                <div class="metric-caption">Registered equipment</div>
+            </article>
+
+            <article class="metric-card">
+                <div class="metric-heading">
+                    <span>Active Assets</span>
+                    <span class="metric-icon green">⌖</span>
+                </div>
+                <div class="metric-number" id="activeAssets">0</div>
+                <div class="metric-caption">Assets with reported zones</div>
+            </article>
+
+            <article class="metric-card">
+                <div class="metric-heading">
+                    <span>Open Violations</span>
+                    <span class="metric-icon red">!</span>
+                </div>
+                <div class="metric-number" id="openViolations">0</div>
+                <div class="metric-caption" id="violationFoot">No open violations</div>
+            </article>
+
+            <article class="metric-card">
+                <div class="metric-heading">
+                    <span>Recorded Events</span>
+                    <span class="metric-icon purple">◷</span>
+                </div>
+                <div class="metric-number" id="eventCount">0</div>
+                <div class="metric-caption">Events received from backend</div>
+            </article>
+        </section>
+
+        <!-- Hospital floor plan -->
+        <section class="panel floor-panel" id="floorplan">
+            <div class="panel-heading">
+                <div>
+                    <div class="eyebrow">SPATIAL OVERVIEW</div>
+                    <h2>Live Hospital Floor Plan</h2>
+                    <p>Asset markers update from simulated room reports.</p>
+                </div>
+
+                <div class="legend">
+                    <span><i class="legend-dot authorized"></i> Authorized</span>
+                    <span><i class="legend-dot violation"></i> Violation</span>
+                    <span><i class="legend-dot staff"></i> Staff illustration</span>
+                </div>
+            </div>
+
+            <div id="floorplanGrid" class="floorplan-grid">
+                <div class="loading-state">Connecting to live asset data...</div>
+            </div>
+
+            <div class="map-footer">
+                <span><i class="online-dot"></i> Locations are software-simulated, not physical GPS.</span>
+                <span id="lastUpdated">Last update: —</span>
+            </div>
+        </section>
+
+        <!-- Alerts -->
+        <section class="content-grid" id="alerts">
+            <article class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <div class="eyebrow">SECURITY MONITORING</div>
+                        <h2>Recent Zone Alerts</h2>
+                        <p>New violations and cleared violations.</p>
+                    </div>
+                    <span id="alertCountPill" class="count-pill">0 alerts</span>
+                </div>
+
+                <div id="alertList" class="alert-list">
+                    <div class="loading-state">Waiting for events...</div>
+                </div>
+
+                <button id="viewAllAlerts" class="button button-wide">
+                    View event history ↓
+                </button>
+            </article>
+
+            <article class="panel system-panel">
+                <div class="eyebrow">SYSTEM STATUS</div>
+                <h2>Monitoring Services</h2>
+                <p class="panel-description">Connection status of the dashboard.</p>
+
+                <div class="service-row">
+                    <span class="service-symbol">API</span>
+                    <div>
+                        <strong>Node-RED API</strong>
+                        <small>Live dashboard data</small>
+                    </div>
+                    <span id="apiIndicator" class="service-state">WAITING</span>
+                </div>
+
+                <div class="service-row">
+                    <span class="service-symbol">MQ</span>
+                    <div>
+                        <strong>MQTT Tracking</strong>
+                        <small>Reported through backend</small>
+                    </div>
+                    <span class="service-state service-info">BACKEND</span>
+                </div>
+
+                <div class="service-row">
+                    <span class="service-symbol">DB</span>
+                    <div>
+                        <strong>Event Database</strong>
+                        <small>Historical event records</small>
+                    </div>
+                    <span class="service-state service-info">BACKEND</span>
+                </div>
+
+                <div class="info-box">
+                    <strong>Simulation notice</strong>
+                    Asset positions and the hospital layout are for software demonstration.
+                    They do not represent measured physical positions.
+                </div>
+            </article>
+        </section>
+
+        <!-- Asset inventory -->
+        <section class="panel inventory-panel" id="inventory">
+            <div class="panel-heading inventory-heading">
+                <div>
+                    <div class="eyebrow">EQUIPMENT MANAGEMENT</div>
+                    <h2>Asset Inventory</h2>
+                    <p>Current reported location and status for each asset.</p>
+                </div>
+
+                <input id="assetSearch" class="search-input"
+                       type="search" placeholder="Search assets..." aria-label="Search assets">
+            </div>
+
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ASSET</th>
+                        <th>TYPE</th>
+                        <th>REPORTED ZONE</th>
+                        <th>LAST UPDATE</th>
+                        <th>STATUS</th>
+                    </tr>
+                    </thead>
+                    <tbody id="assetTableBody">
+                    <tr><td colspan="5" class="empty-cell">Waiting for asset data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-footer">
+                <span id="assetRowsLabel">0 assets</span>
+                <span>Data supplied by Node-RED</span>
+            </div>
+        </section>
+
+        <!-- History -->
+        <section class="panel history-panel" id="history">
+            <div class="panel-heading">
+                <div>
+                    <div class="eyebrow">AUDIT TRAIL</div>
+                    <h2>Recent Event History</h2>
+                    <p>Latest recorded asset movements and zone events.</p>
+                </div>
+            </div>
+
+            <div id="activityList" class="activity-list">
+                <div class="loading-state">Waiting for event history...</div>
+            </div>
+        </section>
+
+        <footer class="page-footer">
+            <span>SMARTCARE · HOSPITAL ASSET MONITORING</span>
+            <span>SIMULATION-BASED DEMONSTRATION</span>
+        </footer>
+    </main>
+</div>
+
+<div id="toastRegion" class="toast-region" aria-live="polite"></div>
+</body>
+</html>

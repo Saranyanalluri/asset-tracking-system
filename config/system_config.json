@@ -12,7 +12,8 @@
       "LAB",
       "PHARMACY",
       "STORAGE",
-      "EMERGENCY"
+      "EMERGENCY",
+      "CORRIDOR"
     ]
   }
 }
